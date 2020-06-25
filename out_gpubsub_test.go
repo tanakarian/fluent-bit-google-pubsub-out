@@ -1,21 +1,18 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestFLBPluginRegister(t *testing.T) {
-
-}
-
-func TestFLBPluginInit(t *testing.T) {
-
+func TestMain(m *testing.M) {
+	// preprocess
+	var topic *pubsub.Topic
+	m.Run()
+	// postprocess
 }
 
 func TestFLBPluginFlush(t *testing.T) {
-
-}
-
-func TestFLBPluginExit(t *testing.T) {
 
 }
