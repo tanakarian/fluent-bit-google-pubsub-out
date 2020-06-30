@@ -14,7 +14,7 @@ func convertToJson(record map[interface{}]interface{}) ([]byte, error) {
 			jsonMap[k.(string)] = string(t)
 		// nested json
 		case map[interface{}]interface{}:
-			value , err := convertToJson(t)
+			value, err := convertToJson(t)
 			if err != nil {
 				return nil, err
 			}
