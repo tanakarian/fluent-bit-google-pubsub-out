@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"unsafe"
 )
-import "github.com/fluent/fluent-bit-go/output"
-import "cloud.google.com/go/pubsub"
+import (
+	"cloud.google.com/go/pubsub"
+	"github.com/fluent/fluent-bit-go/output"
+)
 
 var outpubsubclient *OutPubSubClient
 
@@ -19,11 +21,11 @@ func FLBPluginRegister(flbCtx unsafe.Pointer) int {
 //export FLBPluginInit
 func FLBPluginInit(flbCtx unsafe.Pointer) int {
 	// required
-	projectId := output.FLBPluginConfigKey(flbCtx, "Project")
-	topicId := output.FLBPluginConfigKey(flbCtx, "Topic")
+	projectID := output.FLBPluginConfigKey(flbCtx, "Project")
+	topicID := output.FLBPluginConfigKey(flbCtx, "Topic")
 	keyPath := output.FLBPluginConfigKey(flbCtx, "Key")
 
-	c, err := NewOutPubSubClient(projectId, topicId, keyPath)
+	c, err := NewOutPubSubClient(projectID, topicID, keyPath)
 	if err != nil {
 		return output.FLB_ERROR
 	}
@@ -41,7 +43,7 @@ func FLBPluginFlush(data unsafe.Pointer, length C.int, tag *C.char) int {
 			break
 		}
 
-		jsonBytes, err := convertToJson(record)
+		jsonBytes, err := convertToJSON(record)
 		if err != nil {
 			fmt.Printf("[flb-go::gcloud_pubsub] parse error: %s", err)
 			return output.FLB_ERROR

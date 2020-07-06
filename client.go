@@ -1,9 +1,10 @@
 package main
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
 	"fmt"
+
+	"cloud.google.com/go/pubsub"
 	"google.golang.org/api/option"
 )
 
@@ -21,7 +22,7 @@ func NewOutPubSubClient(projectId string, topicId string, keyPath string) (*OutP
 	ctx := context.Background()
 	pubsubc, err := pubsub.NewClient(ctx, projectId, opt)
 	if err != nil {
-		return nil, fmt.Errorf("[flb-go::gcloud_pubsub] initialize pubsub client err: %s\n", err)
+		return nil, fmt.Errorf("[flb-go::gcloud_pubsub] initialize pubsub client err: %s", err)
 	}
 
 	topic := pubsubc.Topic(topicId)
@@ -33,15 +34,14 @@ func NewOutPubSubClient(projectId string, topicId string, keyPath string) (*OutP
 	return client, nil
 }
 
-func (c *OutPubSubClient) IsTopicExists() bool {
+func (c *OutPubSubClient) IsTopicExists() (bool, error) {
 	ctx := context.Background()
 	exist, err := c.topic.Exists(ctx)
 	if !exist {
-		fmt.Printf("[flb-go::gcloud_pubsub] topic is not found: %s. You must set an existing topic name\n", err)
-		return false
+		return false, err
 	}
 
-	return true
+	return true, nil
 }
 
 func (c *OutPubSubClient) Publish(ctx context.Context, msg *pubsub.Message) *pubsub.PublishResult {
