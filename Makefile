@@ -6,4 +6,4 @@ build-img:
 	docker build -t flb-out_gcloud_pubsub:latest -f examples/Dockerfile .
 
 run:
-	docker run --rm flb-out_gcloud_pubsub:latest
+	docker run -p 24224:24224 --rm flb-out_gcloud_pubsub:latest

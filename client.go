@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 	"google.golang.org/api/option"
@@ -13,19 +14,16 @@ type OutPubSubClient struct {
 	topic        *pubsub.Topic // type Topic is embedding pubsub.Client.
 }
 
-func NewOutPubSubClient(projectId string, topicId string, keyPath string) (*OutPubSubClient, error) {
-	if projectId == "" || topicId == "" || keyPath == "" {
-		return nil, fmt.Errorf("[flb-go::gcloud_pubsub] projectId, topicId, keyPath are required fields")
-	}
-
+func NewOutPubSubClient(projectID string, topicID string, keyPath string) (*OutPubSubClient, error) {
 	opt := option.WithCredentialsFile(keyPath)
 	ctx := context.Background()
-	pubsubc, err := pubsub.NewClient(ctx, projectId, opt)
+	pubsubc, err := pubsub.NewClient(ctx, projectID, opt)
 	if err != nil {
 		return nil, fmt.Errorf("[flb-go::gcloud_pubsub] initialize pubsub client err: %s", err)
 	}
 
-	topic := pubsubc.Topic(topicId)
+	topic := pubsubc.Topic(topicID)
+
 	client := &OutPubSubClient{
 		pubsubclient: pubsubc,
 		topic:        topic,
@@ -42,6 +40,30 @@ func (c *OutPubSubClient) IsTopicExists() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (c *OutPubSubClient) SetTopicDelayThreshold(v time.Duration) {
+	c.topic.PublishSettings.DelayThreshold = v
+}
+
+func (c *OutPubSubClient) SetTopicCountThreshold(v int) {
+	c.topic.PublishSettings.CountThreshold = v
+}
+
+func (c *OutPubSubClient) SetTopicByteThreshold(v int) {
+	c.topic.PublishSettings.ByteThreshold = v
+}
+
+func (c *OutPubSubClient) SetTopicNumGoroutines(v int) {
+	c.topic.PublishSettings.NumGoroutines = v
+}
+
+func (c *OutPubSubClient) SetTopicTimeout(v time.Duration) {
+	c.topic.PublishSettings.Timeout = v
+}
+
+func (c *OutPubSubClient) SetTopicBufferedByteLimit(v int) {
+	c.topic.PublishSettings.BufferedByteLimit = v
 }
 
 func (c *OutPubSubClient) Publish(ctx context.Context, msg *pubsub.Message) *pubsub.PublishResult {
