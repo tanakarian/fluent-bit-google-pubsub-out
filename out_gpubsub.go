@@ -4,17 +4,17 @@ import (
 	"C"
 	"context"
 	"fmt"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"strconv"
+	"time"
 	"unsafe"
 
-	"strconv"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/fluent/fluent-bit-go/output"
 
 	"cloud.google.com/go/pubsub"
 )
-import "time"
 
 var outpubsubclient *OutPubSubClient
 
@@ -38,7 +38,7 @@ func FLBPluginInit(flbCtx unsafe.Pointer) int {
 	bufferedByteLimit := output.FLBPluginConfigKey(flbCtx, "BufferedByteLimit")
 
 	if projectID == "" || topicID == "" || keyPath == "" {
-		fmt.Println(fmt.Errorf("[flb-go::gcloud_pubsub] projectId, topicId, keyPath are required fields"))
+		fmt.Println(fmt.Errorf("[flb-go::gcloud_pubsub] projectId, topicId, keyPath are required fields\n"))
 		return output.FLB_ERROR
 	}
 
@@ -96,7 +96,7 @@ func FLBPluginInit(flbCtx unsafe.Pointer) int {
 			fmt.Println(err)
 			return output.FLB_ERROR
 		}
-		outpubsubclient.SetTopicTimeout(time.Duration(v) * time.Millisecond)
+		outpubsubclient.SetTopicTimeout(time.Duration(v) * time.Second)
 	}
 
 	if bufferedByteLimit != "" {
@@ -122,11 +122,9 @@ func FLBPluginFlush(data unsafe.Pointer, length C.int, tag *C.char) int {
 			break
 		}
 
-		// for debug
-		fmt.Println("[flb-go::gcloud_pubsub] run flush. next convertToJSON")
 		jsonBytes, err := convertToJSON(record)
 		if err != nil {
-			fmt.Printf("[flb-go::gcloud_pubsub] parse error: %s", err)
+			fmt.Printf("[flb-go::gcloud_pubsub] parse error: %s\n", err)
 			return output.FLB_ERROR
 		}
 
@@ -139,15 +137,22 @@ func FLBPluginFlush(data unsafe.Pointer, length C.int, tag *C.char) int {
 
 	for _, result := range publishResults {
 		if _, err := result.Get(ctx); err != nil {
+			if err == context.DeadlineExceeded {
+				fmt.Printf("[flb-go::gcloud_pubsub] %s\n", err)
+				// flb scheduler retries failed task by using backoff_full_jitter algorithm.
+				return output.FLB_RETRY
+			}
+
 			if stts, ok := status.FromError(err); !ok {
-				fmt.Printf("[flb-go::gcloud_pubsub] unexpected error: %s", err)
+				fmt.Printf("[flb-go::gcloud_pubsub] unexpected error: %s\n", err)
+				return output.FLB_ERROR
 			} else {
 				switch stts.Code() {
 				case codes.DeadlineExceeded, codes.Internal, codes.Unavailable:
-					fmt.Printf("[flb-go::gcloud_pubsub] flb engine will retry. err: %s", stts.Err())
-					return output.FLB_RETRY // flb scheduler retries failed task by using backoff_full_jitter algorithm.
+					fmt.Printf("[flb-go::gcloud_pubsub] flb engine will retry. err: %s\n", stts.Err())
+					return output.FLB_RETRY
 				default:
-					fmt.Printf("[flb-go::gcloud_pubsub] publish err: %s", stts.Err())
+					fmt.Printf("[flb-go::gcloud_pubsub] publish err: %s\n", stts.Err())
 					return output.FLB_ERROR
 				}
 			}
