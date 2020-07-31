@@ -8,7 +8,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/pkg/errors"
-
 )
 
 type OutPubSubClient struct {
@@ -21,7 +20,7 @@ func NewOutPubSubClient(projectID string, topicID string, keyPath string) (*OutP
 	ctx := context.Background()
 	pubsubc, err := pubsub.NewClient(ctx, projectID, opt)
 	if err != nil {
-		return nil, errors.Wrap(err,"[flb-go::gcloud_pubsub] Initialize pubsub client err")
+		return nil, errors.Wrap(err, "[flb-go::gcloud_pubsub] Initialize pubsub client err")
 	}
 
 	topic := pubsubc.Topic(topicID)
