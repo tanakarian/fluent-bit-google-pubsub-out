@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/pkg/errors"
 )
 
 func convertToJSON(record map[interface{}]interface{}) ([]byte, error) {
@@ -9,7 +10,7 @@ func convertToJSON(record map[interface{}]interface{}) ([]byte, error) {
 
 	b, err := json.Marshal(jsonMap)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "[flb-go::gcloud_pubsub] Failed to json.Marshall input map data")
 	}
 
 	return b, nil

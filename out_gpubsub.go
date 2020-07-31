@@ -3,7 +3,6 @@ package main
 import (
 	"C"
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 	"unsafe"
@@ -12,11 +11,22 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/fluent/fluent-bit-go/output"
+	"github.com/sirupsen/logrus"
 
 	"cloud.google.com/go/pubsub"
 )
 
 var outpubsubclient *OutPubSubClient
+var logger *logrus.Logger
+
+func init() {
+	logger = logrus.New()
+	// TODO enable users of plugin to set logLevel via config file.
+	level, _ := logrus.ParseLevel("info")
+	logger.SetLevel(level)
+	formatter := flbFormat{TimestampFormat:"2020/07/22 00:00:00"}
+	logger.SetFormatter(&formatter)
+}
 
 //export FLBPluginRegister
 func FLBPluginRegister(flbCtx unsafe.Pointer) int {
@@ -38,19 +48,19 @@ func FLBPluginInit(flbCtx unsafe.Pointer) int {
 	bufferedByteLimit := output.FLBPluginConfigKey(flbCtx, "BufferedByteLimit")
 
 	if projectID == "" || topicID == "" || keyPath == "" {
-		fmt.Println(fmt.Errorf("[flb-go::gcloud_pubsub] projectId, topicId, keyPath are required fields\n"))
+		logger.Error("[flb-go::gcloud_pubsub] projectId, topicId, keyPath are required fields")
 		return output.FLB_ERROR
 	}
 
 	c, err := NewOutPubSubClient(projectID, topicID, keyPath)
 	if err != nil {
-		fmt.Println(err)
+		logger.Errorf("%+v", err)
 		return output.FLB_ERROR
 	}
 
 	outpubsubclient = c
 	if ok, existErr := outpubsubclient.IsTopicExists(); !ok {
-		fmt.Printf("[flb-go::gcloud_pubsub] topic is not found: %s. You must set an existing topic name\n", existErr)
+		logger.Errorf("%+v", existErr)
 		return output.FLB_ERROR
 	}
 
@@ -58,51 +68,51 @@ func FLBPluginInit(flbCtx unsafe.Pointer) int {
 	if delayThreshold != "" {
 		v, err := strconv.Atoi(delayThreshold)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorf("param \"delayThreshold\" is not valid. %+v", err)
 			return output.FLB_ERROR
 		}
 		outpubsubclient.SetTopicDelayThreshold(time.Duration(v) * time.Millisecond)
 	}
 
 	if countThreshold != "" {
-		v, err := strconv.Atoi(delayThreshold)
+		v, err := strconv.Atoi(countThreshold)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorf("param \"countThreshold\" is not valid. %+v", err)
 			return output.FLB_ERROR
 		}
 		outpubsubclient.SetTopicCountThreshold(v)
 	}
 	if byteThreshold != "" {
-		v, err := strconv.Atoi(delayThreshold)
+		v, err := strconv.Atoi(byteThreshold)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorf("param \"byteThreshold\" is not valid. %+v", err)
 			return output.FLB_ERROR
 		}
 		outpubsubclient.SetTopicByteThreshold(v)
 	}
 
 	if numGoroutines != "" {
-		v, err := strconv.Atoi(delayThreshold)
+		v, err := strconv.Atoi(numGoroutines)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorf("param \"numGoroutines\" is not valid. %+v", err)
 			return output.FLB_ERROR
 		}
 		outpubsubclient.SetTopicNumGoroutines(v)
 	}
 
 	if timeout != "" {
-		v, err := strconv.Atoi(delayThreshold)
+		v, err := strconv.Atoi(timeout)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorf("param \"timeout\" is not valid. %+v", err)
 			return output.FLB_ERROR
 		}
 		outpubsubclient.SetTopicTimeout(time.Duration(v) * time.Second)
 	}
 
 	if bufferedByteLimit != "" {
-		v, err := strconv.Atoi(delayThreshold)
+		v, err := strconv.Atoi(bufferedByteLimit)
 		if err != nil {
-			fmt.Println(err)
+			logger.Errorf("param \"bufferedByteLimit\" is not valid. %+v", err)
 			return output.FLB_ERROR
 		}
 		outpubsubclient.SetTopicBufferedByteLimit(v)
@@ -124,7 +134,7 @@ func FLBPluginFlush(data unsafe.Pointer, length C.int, tag *C.char) int {
 
 		jsonBytes, err := convertToJSON(record)
 		if err != nil {
-			fmt.Printf("[flb-go::gcloud_pubsub] parse error: %s\n", err)
+			logger.Errorf("%+v", err)
 			return output.FLB_ERROR
 		}
 
@@ -138,21 +148,22 @@ func FLBPluginFlush(data unsafe.Pointer, length C.int, tag *C.char) int {
 	for _, result := range publishResults {
 		if _, err := result.Get(ctx); err != nil {
 			if err == context.DeadlineExceeded {
-				fmt.Printf("[flb-go::gcloud_pubsub] %s\n", err)
+				logger.Warn("[flb-go::gcloud_pubsub] Deadline Exceeded. will retry...")
 				// flb scheduler retries failed task by using backoff_full_jitter algorithm.
 				return output.FLB_RETRY
 			}
 
 			if stts, ok := status.FromError(err); !ok {
-				fmt.Printf("[flb-go::gcloud_pubsub] unexpected error: %s\n", err)
+				logger.Errorf("[flb-go::gcloud_pubsub] Could not parse error to grpc.status. err: %+v", err)
 				return output.FLB_ERROR
 			} else {
 				switch stts.Code() {
+				// See here: https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
 				case codes.DeadlineExceeded, codes.Internal, codes.Unavailable:
-					fmt.Printf("[flb-go::gcloud_pubsub] flb engine will retry. err: %s\n", stts.Err())
+					logger.Warnf("[flb-go::gcloud_pubsub] Retryable error: %s. will retry...", stts.Err())
 					return output.FLB_RETRY
 				default:
-					fmt.Printf("[flb-go::gcloud_pubsub] publish err: %s\n", stts.Err())
+					logger.Errorf("[flb-go::gcloud_pubsub] Publish Error: %s. will retry... %+v", stts.Err())
 					return output.FLB_ERROR
 				}
 			}
