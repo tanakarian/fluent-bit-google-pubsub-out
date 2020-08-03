@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"strings"
 )
@@ -20,7 +19,7 @@ func (f *flbFormat) Format(entry *logrus.Entry) ([]byte, error) {
 		b = &bytes.Buffer{}
 	}
 
-	b.WriteByte('[')
+	b.WriteString("[")
 	b.WriteString(entry.Time.Format(f.TimestampFormat))
 	b.WriteString("] ")
 	b.WriteByte('[')
@@ -28,12 +27,7 @@ func (f *flbFormat) Format(entry *logrus.Entry) ([]byte, error) {
 	b.WriteString("] ")
 
 	b.WriteByte('[')
-	b.WriteString("out.gcloud_gpubsub")
-	b.WriteString("] ")
-	b.WriteByte('[')
-	b.WriteString(entry.Caller.File)
-	b.WriteString(":")
-	fmt.Fprint(b, entry.Caller.Line)
+	b.WriteString("out.gcloud_pubsub")
 	b.WriteString("] ")
 
 	if entry.Message != "" {

@@ -24,8 +24,8 @@ func init() {
 	// TODO enable users of plugin to set logLevel via config file.
 	level, _ := logrus.ParseLevel("info")
 	logger.SetLevel(level)
-	formatter := flbFormat{TimestampFormat: "2020/07/22 00:00:00"}
-	logger.SetFormatter(&formatter)
+	formatter := &flbFormat{TimestampFormat: "2006/01/02 15:04:05"}
+	logger.SetFormatter(formatter)
 }
 
 //export FLBPluginRegister
