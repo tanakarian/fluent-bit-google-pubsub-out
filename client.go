@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"cloud.google.com/go/pubsub"
 	"google.golang.org/api/option"
+
+	"github.com/pkg/errors"
 )
 
 type OutPubSubClient struct {
@@ -19,7 +20,7 @@ func NewOutPubSubClient(projectID string, topicID string, keyPath string) (*OutP
 	ctx := context.Background()
 	pubsubc, err := pubsub.NewClient(ctx, projectID, opt)
 	if err != nil {
-		return nil, fmt.Errorf("[flb-go::gcloud_pubsub] initialize pubsub client err: %s", err)
+		return nil, errors.Wrap(err, "[flb-go::gcloud_pubsub] Initialize pubsub client err")
 	}
 
 	topic := pubsubc.Topic(topicID)
@@ -36,7 +37,7 @@ func (c *OutPubSubClient) IsTopicExists() (bool, error) {
 	ctx := context.Background()
 	exist, err := c.topic.Exists(ctx)
 	if !exist {
-		return false, err
+		return false, errors.Wrap(err, "[flb-go::gcloud_pubsub] Topic does not exist")
 	}
 
 	return true, nil
